@@ -73,13 +73,14 @@ void Paint::Painter::Update(int wndW, int wndH)
   paddingH = static_cast<int>(wndH * settings.paddingH);
   double w = wndW - 2 * paddingW;
   double h = wndH - 2 * paddingH;
-  scaleX = w / static_cast<double>(Paint::WND_SIZE);
-  scaleY = h / static_cast<double>(Paint::WND_SIZE);
+  scaleX = w / static_cast<double>(Paint::Graph::AREA_SIZE);
+  scaleY = h / static_cast<double>(Paint::Graph::AREA_SIZE);
 
   R = settings.vertex_r + static_cast<int>(
     pow(wndW * wndH / 300 / (1 + 0.1 * objects[Paint::Layer::ELLIPSE].size()), 0.45)
     );
-  edge_width = 1. + pow(wndW * wndH / 800, 0.3);
+  edge_width = 2. + pow(wndW * wndH / 10000, 0.3) -
+    min(2., log(objects[Paint::Layer::ELLIPSE].size()));
 }
 
 void Paint::Painter::Reset()
