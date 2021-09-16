@@ -1,5 +1,6 @@
 #pragma once
 #include <vector>
+#include <utility>
 
 #include "painter.h"
 
@@ -20,17 +21,17 @@ namespace Paint {
   class Graph
   {
   public:
-    Graph(vector<Vertex>&& vertexes, vector<Edge>&& edges);
+    Graph(vector<Vertex> vertexes, vector<Edge> edges);
 
     void Render(Painter& p) const;
 
     void Scale(double rate);
 
-    //moves data to main graph
-    //WARNING: vertex and edges data will be lost
-    Graph& JoinTo(Graph& main, int offsetX, int offsetY);
+    Graph& Absorb(Graph&& absorbed, int offsetX, int offsetY);
 
-    static Graph& Join(std::vector<Graph>& graphs);
+    static Graph& Join(std::vector<Graph>&& graphs);
+
+    void Align();
 
     int GetAreaSize() const;
 
@@ -47,6 +48,7 @@ namespace Paint {
 namespace Math {
 
   class ConnectedGraph;
+  class Tree;
 
   class Graph
   {
@@ -62,16 +64,23 @@ namespace Math {
 
     Paint::Graph Lay() const;
 
-  protected:
+    bool HasCycle() const;
 
-    //connectivity components by DFS
-    void CC_DFS(u_int start, vector<bool>& visited, vector<u_int>& cc_vertexes) const;
+    template<typename Proc>
+    void DFS(u_int start, vector<bool>& visited, Proc proc) const;
+
+  protected:
+    ConnectedGraph TurnIntoConGraph(bool move);
+    Tree TurnIntoTree(bool move);
 
   protected:
     vector<vector<u_int>> adj_list;
     //converts vertexes id
     vector<u_int> converter;
     bool convert = false;
+
+  private:
+    bool CycleDFS(u_int start, u_int parent, vector<bool>& visited) const;
   };
 
 
@@ -79,6 +88,19 @@ namespace Math {
   public:
     using Math::Graph::Graph;
     Paint::Graph Lay() const;
+  };
+
+
+  class Tree : public ConnectedGraph {
+  public:
+    using Math::ConnectedGraph::ConnectedGraph;
+
+    Paint::Graph Lay() const;
+    bool HasCycle() const;
+    std::pair<u_int, u_int> GetCenter() const;
+
+  private:
+    u_int GetChieldCount(u_int v, u_int parent) const;
   };
 
 }

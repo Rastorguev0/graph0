@@ -54,8 +54,8 @@ namespace Paint {
       Settings();
 
       std::vector<Layer> queue = { Layer::LINE, Layer::ELLIPSE, Layer::TEXT };
-      double paddingW = 1 / 5.;
-      double paddingH = 1 / 5.;
+      double paddingW = 1 / 8.;
+      double paddingH = 1 / 8.;
       Gdiplus::Color vertex_color;
       Gdiplus::Color edge_color;
       Gdiplus::Color label_color;

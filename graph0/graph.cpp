@@ -2,10 +2,14 @@
 #include <cmath>
 #include <string>
 #include <algorithm>
+#include <optional>
+#include <queue>
 
 #include "graph.h"
 
 using namespace std;
+
+/* Math::Graph */
 
 Math::Graph::Graph()
 {
@@ -35,7 +39,7 @@ Paint::Graph Math::Graph::Lay() const
   for (u_int v = 0; v < adj_list.size(); ++v) {
     if (!visited[v]) {
       vector<u_int> ccv;
-      CC_DFS(v, visited, ccv);
+      DFS(v, visited, [&ccv](u_int v) { ccv.push_back(v); });
 
       //nextly create cc with converter
       sort(ccv.begin(), ccv.end());
@@ -47,12 +51,19 @@ Paint::Graph Math::Graph::Lay() const
           );
         }
       }
-      
       const size_t cc_vertexes = ccv.size();
-      Math::ConnectedGraph cg(adj);
-      cg.ConvertOn(move(ccv));
-      //laying the cc graph and scale it by vertex count
-      ccs.emplace_back(cg.Lay());
+      Math::Graph g(move(adj));
+      g.ConvertOn(move(ccv));
+      if (g.HasCycle()) {
+        Math::ConnectedGraph cg = g.TurnIntoConGraph(true);
+        ccs.emplace_back(cg.Lay());
+      }
+      else {
+        Math::Tree t = g.TurnIntoTree(true);
+        ccs.emplace_back(t.Lay());
+      }
+
+      //scale cc by vertex count
       ccs.back().Scale(
         sqrt(cc_vertexes / static_cast<double>(adj_list.size()))
       );
@@ -60,16 +71,17 @@ Paint::Graph Math::Graph::Lay() const
   }
 
   //join connectivity components
-  return Paint::Graph::Join(ccs);
+  return Paint::Graph::Join(move(ccs));
 }
 
-void Math::Graph::CC_DFS(u_int start, vector<bool>& visited, vector<u_int>& cc_vertexes) const
+template<typename Proc>
+void Math::Graph::DFS(u_int start, vector<bool>& visited, Proc proc) const
 {
   visited[start] = true;
-  cc_vertexes.push_back(start);
+  proc(start);
   for (u_int n : adj_list[start]) {
     if (!visited[n]) {
-      CC_DFS(n, visited, cc_vertexes);
+      DFS(n, visited, proc);
     }
   }
 }
@@ -89,6 +101,66 @@ void Math::Graph::ConvertOff()
 {
   convert = false;
 }
+
+bool Math::Graph::HasCycle() const
+{
+  vector<bool> visited(adj_list.size(), false);
+  for (int v = 0; v < adj_list.size(); ++v) {
+    if (!visited[v] && CycleDFS(0, -1, visited))
+      return true;
+  }
+  return false;
+}
+
+bool Math::Graph::CycleDFS(u_int start, u_int parent, vector<bool>& visited) const
+{
+  visited[start] = true;
+  for (u_int n : adj_list[start]) {
+    if (visited[n] && n != parent) {
+      return true;
+    }
+    else if (!visited[n] && CycleDFS(n, start, visited)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+Math::ConnectedGraph Math::Graph::TurnIntoConGraph(bool move)
+{
+  ConnectedGraph result;
+  if (move) {
+    result = ConnectedGraph(std::move(adj_list));
+    result.ConvertOn(std::move(converter));
+    if (!convert) result.ConvertOff();
+  }
+  else {
+    result = ConnectedGraph(adj_list);
+    result.ConvertOn(converter);
+    if (!convert) result.ConvertOff();
+  }
+  return result;
+}
+
+Math::Tree Math::Graph::TurnIntoTree(bool move)
+{
+  Tree result;
+  if (move) {
+    result = Tree(std::move(adj_list));
+    result.ConvertOn(std::move(converter));
+    if (!convert) result.ConvertOff();
+  }
+  else {
+    result = Tree(adj_list);
+    result.ConvertOn(converter);
+    if (!convert) result.ConvertOff();
+  }
+  return result;
+}
+
+
+/* Math::ConnectedGraph */
+
 
 Paint::Graph Math::ConnectedGraph::Lay() const
 {
@@ -120,107 +192,115 @@ Paint::Graph Math::ConnectedGraph::Lay() const
 }
 
 
-Paint::Graph::Graph(vector<Vertex>&& vertexes, vector<Edge>&& edges)
-  : vertexes(move(vertexes)), edges(move(edges))
+/* Math::Tree */
+
+
+Paint::Graph Math::Tree::Lay() const
 {
-}
+  vector<Paint::Vertex> vertexes;
+  vector<Paint::Edge> edges;
 
-void Paint::Graph::Render(Painter& p) const
-{
-  for (const auto& vertex : vertexes) {
-    p.AddObject(
-      Paint::Ellipse{ .center = vertex.p }
-    ).AddObject(
-      Paint::Text{ .text = to_string(vertex.label), .center = vertex.p }
-    );
-  }
+  const auto [C, R] = GetCenter();
 
-  for (const auto& edge : edges) {
-    p.AddObject(
-      Paint::Line{ .from = edge.from, .to = edge.to }
-    );
-  }
-}
+  //for every vertex keep number of it's child vertexes'
+  //for central vertex it's all vertex count - 1
+  vector<u_int> ch_count(adj_list.size());
+  ch_count[C] = adj_list.size() - 1;
+  //for every vertex keep it's depth
+  //for central vertex it's 0
+  vector<u_int> depth(adj_list.size());
+  depth[C] = 0;
+  //for every vertex keep it's outcoming angle sector for child vertexes
+  //for central vertex it's sector is [0; 2 * M_PI]
+  vector<pair<double, double>> sectors(adj_list.size());
+  sectors[C] = { 0, 2 * M_PI };
+  //for every vertex keep it's coordinates
+  //for central vertex it's {AREA_SIZE / 2; AREA_SIZE / 2}
+  vector<Paint::Point> points(adj_list.size());
+  points[C] = Paint::Point{ Paint::Graph::AREA_SIZE / 2, Paint::Graph::AREA_SIZE / 2 };
+  //lay the central vertex
+  vertexes.emplace_back(convert ? converter[C] : C, points[C]);
 
-void Paint::Graph::Scale(double rate)
-{
-  if (rate == 1.) return;
-  for (auto& v : vertexes) {
-    v.p.x *= rate;
-    v.p.y *= rate;
-  }
-  for (auto& e : edges) {
-    e.from.x *= rate;
-    e.from.y *= rate;
-    e.to.x *= rate;
-    e.to.y *= rate;
-  }
-  area_size = static_cast<int>(area_size * rate);
-}
+  //nextly use BFS to lay the tree radialy
+  vector<bool> visited(adj_list.size(), false);
+  queue<u_int> q;
+  q.push(C);
+  while (!q.empty()) {
+    u_int u = q.front();
+    q.pop();
+    visited[u] = true;
+    double sector_begin = sectors[u].first;
+    for (u_int n : adj_list[u]) {
+      if (!visited[n]) {
+        q.push(n);
+        const auto [ps_begin, ps_end] = sectors[u];
+        ch_count[n] = GetChieldCount(n, u);
+        double alpha = (ps_end - ps_begin) * (1 + ch_count[n]) / static_cast<double>(ch_count[u]);
+        sectors[n] = { sector_begin, sector_begin + alpha };
+        sector_begin += alpha;
 
-Paint::Graph& Paint::Graph::JoinTo(Paint::Graph& main, int offsetX, int offsetY)
-{
-  for (auto v = main.vertexes.insert(main.vertexes.end(),
-    make_move_iterator(vertexes.begin()), make_move_iterator(vertexes.end())
-  );
-    v < main.vertexes.end();
-    ++v)
-  {
-    v->p.x += offsetX;
-    v->p.y += offsetY;
-  }
-  for (auto e = main.edges.insert(main.edges.end(),
-    make_move_iterator(edges.begin()), make_move_iterator(edges.end())
-  );
-    e < main.edges.end();
-    ++e)
-  {
-    e->from.x += offsetX;
-    e->from.y += offsetY;
-    e->to.x += offsetX;
-    e->to.y += offsetY;
-  }
-  main.area_size = max(main.area_size, max(offsetX, offsetY) + area_size);
-  vertexes.clear();
-  edges.clear();
-  return main;
-}
-
-Paint::Graph& Paint::Graph::Join(std::vector<Paint::Graph>& graphs)
-{
-  sort(graphs.begin(), graphs.end(),
-    [](const Paint::Graph& c1, const Paint::Graph& c2) {
-      return c2.GetAreaSize() < c1.GetAreaSize();
-    }
-  );
-  const int padding = Paint::Graph::AREA_SIZE / 4;
-
-  Paint::Graph& main = graphs.front();
-  for (int counter = 1; counter < graphs.size(); ++counter) {
-    int size = main.GetAreaSize();
-    graphs[counter].JoinTo(main, size + padding, size + padding);
-    int corner_area_size = main.GetAreaSize() - size - padding;
-    if (++counter < graphs.size()) {
-      auto& joined = graphs[counter];
-      joined.JoinTo(main,
-        size + padding + (corner_area_size - joined.GetAreaSize()) / 2,
-        (size - joined.GetAreaSize()) / 2
-      );
-
-      if (++counter < graphs.size()) {
-        auto& joined = graphs[counter];
-        joined.JoinTo(main,
-          (size - joined.GetAreaSize()) / 2,
-          size + padding + (corner_area_size - joined.GetAreaSize()) / 2
-        );
+        depth[n] = depth[u] + 1u;
+        double r = depth[n] * Paint::Graph::AREA_SIZE / R / 2.;
+        points[n] = Paint::Point {
+        static_cast<int>(r * cos(sectors[n].first + alpha / 2) + Paint::Graph::AREA_SIZE / 2),
+        static_cast<int>(r * sin(sectors[n].first + alpha / 2) + Paint::Graph::AREA_SIZE / 2)
+        };
+        vertexes.emplace_back(convert ? converter[n] : n, points[n]);
+        edges.emplace_back(points[u], points[n]);
       }
     }
   }
-  main.Scale(Paint::Graph::AREA_SIZE / static_cast<double>(main.area_size));
-  return main;
+
+  return Paint::Graph(move(vertexes), move(edges));
 }
 
-int Paint::Graph::GetAreaSize() const
+bool Math::Tree::HasCycle() const
 {
-  return area_size;
+  return false;
+}
+
+std::pair<u_int, u_int> Math::Tree::GetCenter() const
+{
+  if (adj_list.empty())
+    return make_pair(0, 0);
+
+  vector<vector<int>> distances(
+    adj_list.size(), vector<int>(adj_list.size(), -1)
+  );
+  //using BFS for every vertex to get distance
+  for (int v = 0; v < distances.size(); ++v) {
+    distances[v][v] = 0;
+    queue<u_int> q;
+    vector<bool> visietd(distances.size(), false);
+    q.push(v);
+    while (!q.empty()) {
+      u_int u = q.front();
+      q.pop();
+      visietd[u] = true;
+      for (u_int n : adj_list[u]) {
+        if (!visietd[n]) {
+          q.push(n);
+          distances[v][n] = distances[v][u] + 1;
+        }
+      }
+    }
+  }
+
+  //counting the eccentricity of the vertices
+  vector<int> e(distances.size());
+  for (int v = 0; v < distances.size(); ++v) {
+    e[v] = *max_element(distances[v].begin(), distances[v].end());
+  }
+
+  auto v = min_element(e.begin(), e.end());
+  return make_pair(distance(e.begin(), v), *v);
+}
+
+u_int Math::Tree::GetChieldCount(u_int v, u_int parent) const
+{
+  vector<bool> visited(adj_list.size(), false);
+  visited[parent] = true;
+  int counter = -1;
+  DFS(v, visited, [&counter](u_int _) { counter++; });
+  return static_cast<u_int>(counter);
 }

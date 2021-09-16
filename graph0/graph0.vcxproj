@@ -156,6 +156,7 @@
     <ClCompile Include="graph0.cpp" />
     <ClCompile Include="IOcontroller.cpp" />
     <ClCompile Include="painter.cpp" />
+    <ClCompile Include="paint_graph.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="graph0.rc" />
