@@ -145,7 +145,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     case ID_FILE_STARTDRAWINGTHEGRAPH:
       try {
         Math::Graph graph(
-          Math::Graph::AdjListFromMatrix(IOcontroller::ReadMatrix("graph.txt"))
+          Math::Graph::AdjListFromMatrix(IOcontroller::ReadMatrix("graph3.txt"))
         );
         PAINTER.Reset();
         graph.Lay().Render(PAINTER);

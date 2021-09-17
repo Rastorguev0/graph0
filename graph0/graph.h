@@ -29,6 +29,8 @@ namespace Paint {
     void Render(Painter& p) const;
 
     void Scale(double rate);
+    void ScaleX(double rate);
+    void ScaleY(double rate);
 
     Graph& Absorb(Graph&& absorbed, int offsetX, int offsetY);
 
@@ -37,7 +39,9 @@ namespace Paint {
     //cuts off excess void area
     void Cut();
 
-    int GetAreaSize() const;
+    void Rotate();
+
+    int GetArea() const;
     int GetAreaW() const;
     int GetAreaH() const;
 

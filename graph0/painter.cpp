@@ -77,7 +77,7 @@ void Paint::Painter::Update(int wndW, int wndH)
   scaleY = h / static_cast<double>(Paint::Graph::AREA_SIZE);
 
   R = settings.vertex_r + static_cast<int>(
-    pow(wndW * wndH / 300 / (1 + 0.2 * objects[Paint::Layer::ELLIPSE].size()), 0.45)
+    pow(wndW * wndH / 300 / (1 + 0.3 * objects[Paint::Layer::ELLIPSE].size()), 0.45)
     );
   edge_width = 2. + pow(wndW * wndH / 10000, 0.3) -
     min(2., log(objects[Paint::Layer::ELLIPSE].size()));
