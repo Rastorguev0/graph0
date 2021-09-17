@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include <utility>
+#include <unordered_map>
 
 #include "painter.h"
 
@@ -9,19 +10,21 @@ using std::vector;
 namespace Paint {
 
   struct Vertex {
-    int label = 0;
+    int id = 0;
     Point p;
   };
 
   struct Edge {
-    Point from;
-    Point to;
+    //id from, id to
+    int from;
+    int to;
   };
 
+  //VERTEX ID MUST BE UNIQUE!
   class Graph
   {
   public:
-    Graph(vector<Vertex> vertexes, vector<Edge> edges);
+    Graph(const vector<Vertex>& vs, vector<Edge> edges);
 
     void Render(Painter& p) const;
 
@@ -31,16 +34,20 @@ namespace Paint {
 
     static Graph& Join(std::vector<Graph>&& graphs);
 
-    void Align();
+    //cuts off excess void area
+    void Cut();
 
     int GetAreaSize() const;
+    int GetAreaW() const;
+    int GetAreaH() const;
 
     static const int AREA_SIZE = 1000;
 
   private:
-    vector<Vertex> vertexes;
+    std::unordered_map<int, Vertex> vertexes;
     vector<Edge> edges;
-    int area_size = AREA_SIZE;
+    int areaW = AREA_SIZE;
+    int areaH = AREA_SIZE;
   };
 
 }

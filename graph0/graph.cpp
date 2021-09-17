@@ -174,7 +174,8 @@ Paint::Graph Math::ConnectedGraph::Lay() const
       static_cast<int>(R * (cos(alpha) + 1.)),
       static_cast<int>(R * (sin(alpha) + 1.))
     };
-    vertexes.emplace_back(convert ? converter[v] : v, p);
+    const int v_id = convert ? converter[v] : v;
+    vertexes.emplace_back(v_id, p);
 
     for (const auto n : adj_list[v]) {
       if (v < n) {
@@ -183,12 +184,13 @@ Paint::Graph Math::ConnectedGraph::Lay() const
       static_cast<int>(R * (cos(alpha) + 1.)),
       static_cast<int>(R * (sin(alpha) + 1.))
         };
-        edges.emplace_back(p, p2);
+        const int n_id = convert ? converter[n] : n;
+        edges.emplace_back(v_id, n_id);
       }
     }
 
   }
-  return Paint::Graph(move(vertexes), move(edges));
+  return Paint::Graph(vertexes, move(edges));
 }
 
 
@@ -241,17 +243,19 @@ Paint::Graph Math::Tree::Lay() const
 
         depth[n] = depth[u] + 1u;
         double r = depth[n] * Paint::Graph::AREA_SIZE / R / 2.;
-        points[n] = Paint::Point {
+        points[n] = Paint::Point{
         static_cast<int>(r * cos(sectors[n].first + alpha / 2) + Paint::Graph::AREA_SIZE / 2),
         static_cast<int>(r * sin(sectors[n].first + alpha / 2) + Paint::Graph::AREA_SIZE / 2)
         };
-        vertexes.emplace_back(convert ? converter[n] : n, points[n]);
-        edges.emplace_back(points[u], points[n]);
+        const int u_id = convert ? converter[u] : u;
+        const int n_id = convert ? converter[n] : n;
+        vertexes.emplace_back(n_id, points[n]);
+        edges.emplace_back(u_id, n_id);
       }
     }
   }
 
-  return Paint::Graph(move(vertexes), move(edges));
+  return Paint::Graph(vertexes, move(edges));
 }
 
 bool Math::Tree::HasCycle() const
